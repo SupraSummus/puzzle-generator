@@ -1,9 +1,13 @@
-"""Render the shortest disassembly path for a random 2-piece partition of a 3x3x3 cube.
+"""Render the shortest disassembly path for a non-trivial 3-piece partition of a 3x3x3 cube.
 
-Starts from solved and writes one PNG per step of the shortest walk to a
-fully-disassembled (bbox-disjoint) state. Pieces that have become 'out' are
-hidden from the frame so the view stays focused on what's still assembled.
-Deterministic given the seed.
+Searches seeds in order for the first partition whose shortest disassembly is
+at least `MIN_MOVES` moves, so the committed frames are never a 1- or 2-move
+giveaway (R-004 proxy: longer forced paths are less mentally inspectable).
+Keeps the state space tiny by capping per-piece displacement at 1 (R-011).
+
+Usage:
+    python3 disassembly_demo.py           # searches for a seed meeting MIN_MOVES
+    python3 disassembly_demo.py 7         # forces a specific seed
 """
 from __future__ import annotations
 
@@ -12,18 +16,39 @@ import sys
 
 from generate import cube, random_partition, world_from_partition
 from puzzle import pieces_out_along_path, shortest_disassembly_path
+
 from render import render_path
 
-seed = int(sys.argv[1]) if len(sys.argv) > 1 else 13
+N_PIECES = 3
+CUBE_SIDE = 3
+MAX_DISPLACEMENT = 1
+MIN_MOVES = 5
 
-rng = random.Random(seed)
-target = cube(3)
-pieces = random_partition(target, 2, rng)
-world = world_from_partition(pieces, max_displacement=3)
 
-path = shortest_disassembly_path(world)
-if path is None:
-    raise SystemExit("no disassembled state reachable from solved")
+def build(seed: int):
+    rng = random.Random(seed)
+    pieces = random_partition(cube(CUBE_SIDE), N_PIECES, rng)
+    return pieces, world_from_partition(pieces, max_displacement=MAX_DISPLACEMENT)
+
+
+def pick_seed() -> tuple[int, list, tuple]:
+    for seed in range(10_000):
+        pieces, world = build(seed)
+        path = shortest_disassembly_path(world)
+        if path is not None and len(path) - 1 >= MIN_MOVES:
+            return seed, path, pieces
+    raise SystemExit(f"no seed under 10_000 yielded a {MIN_MOVES}-move disassembly")
+
+
+if len(sys.argv) > 1:
+    seed = int(sys.argv[1])
+    pieces, world = build(seed)
+    path = shortest_disassembly_path(world)
+    if path is None:
+        raise SystemExit("no disassembled state reachable from solved")
+else:
+    seed, path, pieces = pick_seed()
+    _, world = build(seed)
 
 hidden = pieces_out_along_path(world, path)
 

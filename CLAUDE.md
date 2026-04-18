@@ -4,18 +4,15 @@ The human driving this project knows the **requirements and the effects**, not t
 
 ## Before you write code
 
-1. **Read `SPEC.md` first.** It's the source of truth for what the project should do. Figure out which requirement ID(s) the current task touches. If none fit, stop and ask the user whether to add one.
-2. **Propose before implementing.** For any task beyond a trivial edit (≤10 lines, obvious fix), reply with a short plan *before* touching files:
-   - Which requirement this serves (e.g. "R-004").
-   - What you'll change (files, functions, data flow) — concrete, not abstract.
-   - How the user will verify it worked (what they'll see, run, or click).
-   - Anything you're unsure about and want the user to decide.
-3. **Wait for a go.** The user reviews the plan against their requirements and intuition. They may redirect. Don't start coding until they say go.
+1. **Read `SPEC.md` first.** It's the source of truth for what the project should do. Figure out which requirement ID(s) the current task touches. If none fit, add one yourself and flag it in the commit.
+2. **Act, don't ask.** PR review is the safety net, not pre-approval. Pick a reasonable path, implement it, and let the diff be the proposal. Reserve questions for genuine forks where the user's intuition is the only tiebreaker — not for choices they can judge faster by reading the change. Prefer a one-line update ("doing X, will push") over a menu of options.
+3. **No harm floor.** Branch work is cheap and reversible. Force-push nothing to `main`, respect the session's feature branch, and otherwise move.
 
 ## While coding
 
 - Reference the requirement ID in commit messages (`R-004: add score_graph skeleton`).
-- Keep the scope to the approved plan. If you discover the plan won't work, stop and report — don't silently expand.
+- Efficiency and elegance are requirements (see R-011). A solution that blows the state-space budget or sprawls across files is not done.
+- If the approach you picked turns out to be wrong, fix it in a follow-up commit — don't hide the detour.
 
 ## After coding
 
