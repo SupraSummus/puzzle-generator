@@ -69,18 +69,17 @@ Score sketch: something like `|unsolved| * |solved| / cut_width`, filtered by `c
 
 Two independent checks on the model:
 
-- **`tests.py`** — invariants: overlap and cage collision detection, displacement bound, move reversibility, free-piece state count formula `(2k+1)^3`, interior degree = 6, tube-cage produces a line graph, invalid solved state raises, shortest path is a valid walk of unit slides.
-- **`solve_demo.py`** — picks the reachable state farthest from solved, extracts the shortest walk back, renders each step as a PNG (via `render.py`). Lets a human eyeball the motion: is anything clipping? do pieces actually move by unit steps? do cages render right?
+- **`tests.py`** — invariants: overlap and cage collision detection, displacement bound, move reversibility, free-piece state count formula `(2k+1)^3`, interior degree = 6, tube-cage produces a line graph, invalid solved state raises, shortest path is a valid walk of unit slides, disassembly-path shape.
+- **`disassembly_demo.py`** — renders the shortest solved→disassembled walk for a random 2-piece partition of a 3×3×3 cube. One PNG per step (via `render.py`); pieces that have already "come out" are hidden from later frames so the view stays focused on what's still assembled. Lets a human eyeball the disassembly without 3D-printing.
 
 Run:
 
 ```
 python3 tests.py
-python3 solve_demo.py       # writes frames/frame_*.png
-python3 partition_demo.py   # writes partition_frames/frame_000.png
+python3 disassembly_demo.py   # writes disassembly_frames/frame_*.png
 ```
 
-Both generator scripts are deterministic given pinned dependencies (`requirements.txt`). A GitHub Actions workflow (`.github/workflows/reproducibility.yml`) reruns them on every push and fails if any committed frame would drift, so we can't silently ship out-of-date renders.
+The generator is deterministic given pinned dependencies (`requirements.txt`). A GitHub Actions workflow (`.github/workflows/reproducibility.yml`) reruns the demo on every push and fails if any committed frame would drift, so we can't silently ship out-of-date renders.
 
 ## Partition invariant
 
@@ -96,10 +95,9 @@ A candidate puzzle must, in its solved state, tile a given `target_shape` (e.g. 
 ## Layout
 
 ```
-puzzle.py          core types + state graph BFS + shortest path + partition checks
-generate.py        target shapes (cube, cross) + random_partition + world_from_partition
-tests.py           model and generator invariant tests
-render.py          matplotlib voxel renderer
-solve_demo.py      render the shortest solve path for a 2-piece cube partition
-partition_demo.py  render a random partition of the 3x3x3 cube
+puzzle.py            core types + state graph BFS + shortest path + partition checks
+generate.py          target shapes (cube, cross) + random_partition + world_from_partition
+tests.py             model and generator invariant tests
+render.py            matplotlib voxel renderer
+disassembly_demo.py  render the shortest solved→disassembled path for a 2-piece cube partition
 ```

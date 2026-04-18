@@ -80,6 +80,12 @@ The user-visible criteria for rejection. The numbered requirements below formali
 - **How to tell**: TBD. "Interlock" is the user's word; the implementer turns it into a formal check. Under the 6-sided cage design in R-002 it's automatically satisfied (pieces are confined on every face). Without a cage, the implementer needs a graph-based stability check (e.g. "no single piece can slide out along any axis from the solved state"), vetted against user intuition on examples.
 - **Status**: satisfied-by-construction under the current cage design (R-002). Revisit if the cage is dropped.
 
+### R-010 — Shortest-path disassembly visualization
+- **Effect**: for any candidate puzzle, render a minimal frame-by-frame sequence from solved to fully disassembled along the shortest possible path. No wandering, no clutter. Pieces that are already "out" are hidden from the frame so the view focuses on what's still assembled.
+- **How to tell**: run on the 2-piece cube → 2–3 frames, the two pieces visibly part. Run on a harder candidate → more frames, still no clutter. The user can form an opinion about the puzzle from the PNG sequence alone, without 3D-printing.
+- **Open sub-question**: what counts as "out" for rendering — outside the cage, bbox-disjoint from the rest, or moved > k units? Implementer picks a first pass; user reviews on examples and requests refinement.
+- **Status**: not started. `solve_demo.py` renders a related but different path (farthest-reachable back to solved, with no hiding).
+
 ---
 
 ## Open questions
@@ -106,3 +112,4 @@ Promote to R-### once decided.
 
 - 2026-04-18: initial SPEC extracted from README.
 - 2026-04-18: rewrote in effects-language after bad-puzzle interview. Reframed R-004 (was "score_graph formula") as the cognitive "not mentally solvable" property with deferred measure. Added R-007 (solvable), R-008 (pieces connected), R-009 (interlocks). Clarified R-001 allows any user-chosen target shape.
+- 2026-04-18: added R-010 (shortest-path disassembly visualization) so candidates can be judged from frames alone.

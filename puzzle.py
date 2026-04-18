@@ -9,6 +9,7 @@ Voxel = tuple[int, int, int]
 Shape = frozenset[Voxel]
 Offset = tuple[int, int, int]
 State = tuple[Offset, ...]
+Bbox = tuple[int, int, int, int, int, int]  # (xmin, xmax, ymin, ymax, zmin, zmax)
 
 DIRECTIONS: tuple[Offset, ...] = (
     (1, 0, 0), (-1, 0, 0),
@@ -96,6 +97,25 @@ class World:
                     yield new_state
 
 
+def _piece_bbox(world: World, state: State, i: int) -> Bbox | None:
+    shape = world.pieces[i]
+    if not shape:
+        return None
+    ox, oy, oz = state[i]
+    xs = [x + ox for (x, _, _) in shape]
+    ys = [y + oy for (_, y, _) in shape]
+    zs = [z + oz for (_, _, z) in shape]
+    return (min(xs), max(xs), min(ys), max(ys), min(zs), max(zs))
+
+
+def _bboxes_overlap(a: Bbox, b: Bbox) -> bool:
+    ax0, ax1, ay0, ay1, az0, az1 = a
+    bx0, bx1, by0, by1, bz0, bz1 = b
+    return (ax0 <= bx1 and bx0 <= ax1
+            and ay0 <= by1 and by0 <= ay1
+            and az0 <= bz1 and bz0 <= az1)
+
+
 def bboxes_disjoint(world: World, state: State) -> bool:
     """True iff every pair of pieces' axis-aligned bounding boxes is disjoint.
 
@@ -103,21 +123,11 @@ def bboxes_disjoint(world: World, state: State) -> bool:
     puzzle is effectively disassembled, and further exploration would only
     shuffle pieces through empty space.
     """
-    bboxes: list[tuple[int, int, int, int, int, int]] = []
-    for shape, (ox, oy, oz) in zip(world.pieces, state):
-        if not shape:
-            continue
-        xs = [x + ox for (x, _, _) in shape]
-        ys = [y + oy for (_, y, _) in shape]
-        zs = [z + oz for (_, _, z) in shape]
-        bboxes.append((min(xs), max(xs), min(ys), max(ys), min(zs), max(zs)))
+    bboxes = [b for b in (_piece_bbox(world, state, i) for i in range(len(world.pieces)))
+              if b is not None]
     for i in range(len(bboxes)):
-        ax0, ax1, ay0, ay1, az0, az1 = bboxes[i]
         for j in range(i + 1, len(bboxes)):
-            bx0, bx1, by0, by1, bz0, bz1 = bboxes[j]
-            if (ax0 <= bx1 and bx0 <= ax1
-                    and ay0 <= by1 and by0 <= ay1
-                    and az0 <= bz1 and bz0 <= az1):
+            if _bboxes_overlap(bboxes[i], bboxes[j]):
                 return False
     return True
 
@@ -167,6 +177,49 @@ def shortest_path_lengths(
                 dist[ns] = dist[s] + 1
                 q.append(ns)
     return dist
+
+
+def shortest_disassembly_path(world: World) -> list[State] | None:
+    """Shortest move sequence from `world.solved` to a fully-disassembled state.
+
+    Returns None if no disassembly leaf is reachable. 'Fully disassembled'
+    means every pair of piece bounding boxes is disjoint — no future slide
+    can bring pieces back into contact. BFS leaves are exactly the
+    bboxes-disjoint states (by construction of `stop_at`), so we filter on
+    empty neighbor lists rather than re-running the predicate.
+    """
+    edges = state_graph(world, stop_at=lambda s: bboxes_disjoint(world, s))
+    terminals = [s for s, nbrs in edges.items() if not nbrs and s != world.solved]
+    if not terminals:
+        return None
+    dist = shortest_path_lengths(edges, world.solved)
+    nearest = min(terminals, key=lambda s: dist[s])
+    return shortest_path(edges, world.solved, nearest)
+
+
+def pieces_out_along_path(world: World, path: list[State]) -> list[frozenset[int]]:
+    """For each frame in `path`, return the set of piece indices to hide.
+
+    A piece becomes 'out' on the first frame where its bounding box is
+    disjoint from every other piece's bounding box. It is shown at that
+    frame (so the disassembly event is visible) and hidden on every
+    subsequent frame. Sticky: once hidden, stays hidden.
+    """
+    result: list[frozenset[int]] = []
+    hidden: set[int] = set()
+    n = len(world.pieces)
+    for state in path:
+        result.append(frozenset(hidden))
+        bboxes = [_piece_bbox(world, state, i) for i in range(n)]
+        for i in range(n):
+            if i in hidden or bboxes[i] is None:
+                continue
+            if all(
+                bboxes[j] is None or not _bboxes_overlap(bboxes[i], bboxes[j])
+                for j in range(n) if j != i
+            ):
+                hidden.add(i)
+    return result
 
 
 def shortest_path(
