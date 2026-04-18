@@ -41,7 +41,13 @@ Approaches considered:
 
 Counterexample-guided refinement keeps the "commit on demand" spirit without the bookkeeping.
 
-### 3. What counts as a "good" graph?
+### 3. Stopping the unsolving
+
+Without a termination condition, BFS outward from the solved state just keeps going as pieces drift through empty space. Most of the reachable graph is "shuffle" — pieces that are already separated moving around each other with no interaction. That noise dwarfs the real puzzle content.
+
+Current cutoff: once every pair of pieces has a disjoint axis-aligned bounding box, no future slide can bring them back into contact, so the state is treated as a leaf. `bboxes_disjoint(world, state)` + `state_graph(..., stop_at=...)` implements this. The real "disassembled" states are the leaves that aren't the solved state.
+
+### 4. What counts as a "good" graph?
 
 We want a *narrow passage* between the solved region and the unsolved region. Concretely: the state graph admits a small edge cut (width 1 or 2) such that one side contains the solved state and is relatively small, and the other is large. A user exploring from the scrambled side is unlikely to cross by chance.
 
@@ -59,9 +65,41 @@ Score sketch: something like `|unsolved| * |solved| / cut_width`, filtered by `c
 - Generation algorithm details (perturbation strategy, acceptance criterion).
 - Visualization.
 
+## Validation
+
+Two independent checks on the model:
+
+- **`tests.py`** — invariants: overlap and cage collision detection, displacement bound, move reversibility, free-piece state count formula `(2k+1)^3`, interior degree = 6, tube-cage produces a line graph, invalid solved state raises, shortest path is a valid walk of unit slides.
+- **`solve_demo.py`** — picks the reachable state farthest from solved, extracts the shortest walk back, renders each step as a PNG (via `render.py`). Lets a human eyeball the motion: is anything clipping? do pieces actually move by unit steps? do cages render right?
+
+Run:
+
+```
+python3 tests.py
+python3 solve_demo.py       # writes frames/frame_*.png
+python3 partition_demo.py   # writes partition_frames/frame_000.png
+```
+
+Both generator scripts are deterministic given pinned dependencies (`requirements.txt`). A GitHub Actions workflow (`.github/workflows/reproducibility.yml`) reruns them on every push and fails if any committed frame would drift, so we can't silently ship out-of-date renders.
+
+## Partition invariant
+
+A candidate puzzle must, in its solved state, tile a given `target_shape` (e.g. a 3×3×3 cube) with disjoint connected pieces. This is the starting invariant for generation: seeds start as valid partitions and mutations must preserve the invariant.
+
+- `is_connected(shape)` — 6-neighbor BFS check.
+- `is_target_partition(pieces, solved, target)` — pieces are connected, disjoint, and their union equals `target`.
+- `random_partition(target, n, rng)` — random flood-fill: pick n seeds, repeatedly let a random piece claim a random adjacent unclaimed voxel until the target is covered.
+- `world_from_partition(pieces, max_displacement)` — builds a World with the partition as solved state (all zero offsets).
+
+`partition_demo.py` renders a random partition of a 3×3×3 cube so you can eyeball it.
+
 ## Layout
 
 ```
-puzzle.py    core types + state graph BFS
-example.py   two-piece toy demo
+puzzle.py          core types + state graph BFS + shortest path + partition checks
+generate.py        target shapes (cube, cross) + random_partition + world_from_partition
+tests.py           model and generator invariant tests
+render.py          matplotlib voxel renderer
+solve_demo.py      render the shortest solve path for a 2-piece cube partition
+partition_demo.py  render a random partition of the 3x3x3 cube
 ```
