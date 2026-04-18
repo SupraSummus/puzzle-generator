@@ -1,0 +1,39 @@
+name: reproducibility
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install pinned dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run tests
+        run: python3 tests.py
+
+      - name: Regenerate committed frames
+        run: |
+          python3 partition_demo.py
+          python3 solve_demo.py
+
+      - name: Fail if any tracked file drifted
+        run: git diff --exit-code
+
+      - name: Fail if generators produced untracked files
+        run: |
+          untracked=$(git ls-files --others --exclude-standard)
+          if [ -n "$untracked" ]; then
+            echo "generators produced untracked files:"
+            echo "$untracked"
+            echo "commit them (or adjust the generator seeds)"
+            exit 1
+          fi
