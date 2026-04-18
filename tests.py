@@ -17,6 +17,8 @@ from puzzle import (
     bboxes_disjoint,
     is_connected,
     is_target_partition,
+    pieces_out_along_path,
+    shortest_disassembly_path,
     shortest_path,
     shortest_path_lengths,
     state_graph,
@@ -321,6 +323,36 @@ def test_state_graph_stop_at_trims_expansion() -> None:
     for s, nbrs in trimmed.items():
         if not nbrs and s != world.solved:
             assert bboxes_disjoint(world, s), s
+
+
+def test_shortest_disassembly_path_ends_bbox_disjoint() -> None:
+    """The returned path starts at solved and ends at a bbox-disjoint state."""
+    rng = random.Random(13)
+    target = cube(3)
+    pieces = random_partition(target, 2, rng)
+    world = world_from_partition(pieces, max_displacement=3)
+    path = shortest_disassembly_path(world)
+    assert path is not None
+    assert path[0] == world.solved
+    assert bboxes_disjoint(world, path[-1])
+    for a, b in zip(path, path[1:]):
+        assert b in set(world.neighbors(a)), (a, b)
+
+
+def test_pieces_out_along_path_is_sticky_and_lagged() -> None:
+    """Once hidden, a piece stays hidden; a piece becomes hidden the frame
+    after its bbox is first disjoint from every other piece."""
+    rng = random.Random(13)
+    target = cube(3)
+    pieces = random_partition(target, 2, rng)
+    world = world_from_partition(pieces, max_displacement=3)
+    path = shortest_disassembly_path(world)
+    assert path is not None
+    hidden = pieces_out_along_path(world, path)
+    assert len(hidden) == len(path)
+    assert hidden[0] == frozenset()
+    for a, b in zip(hidden, hidden[1:]):
+        assert a <= b, (a, b)
 
 
 def _run() -> int:

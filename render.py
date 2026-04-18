@@ -23,14 +23,25 @@ def _state_bbox(world: World, states: list[State]) -> tuple[tuple[int, int, int]
     return (min(xs), min(ys), min(zs)), (max(xs) + 1, max(ys) + 1, max(zs) + 1)
 
 
-def render_path(world: World, path: list[State], out_dir: str) -> None:
-    """Write one PNG per state in `path` to `out_dir`, all on a shared global bbox."""
+def render_path(
+    world: World,
+    path: list[State],
+    out_dir: str,
+    hidden_per_frame: list[frozenset[int]] | None = None,
+) -> None:
+    """Write one PNG per state in `path` to `out_dir`, all on a shared global bbox.
+
+    If `hidden_per_frame` is given, piece indices in `hidden_per_frame[idx]`
+    are not drawn in frame `idx`. The global bbox still accounts for every
+    piece in every frame so the camera stays stable.
+    """
     os.makedirs(out_dir, exist_ok=True)
     (x0, y0, z0), (x1, y1, z1) = _state_bbox(world, path)
     shape = (x1 - x0, y1 - y0, z1 - z0)
     cmap = plt.get_cmap("tab10")
 
     for idx, state in enumerate(path):
+        hidden = hidden_per_frame[idx] if hidden_per_frame is not None else frozenset()
         fig = plt.figure(figsize=(6, 6))
         ax = fig.add_subplot(111, projection="3d")
 
@@ -41,6 +52,8 @@ def render_path(world: World, path: list[State], out_dir: str) -> None:
             ax.voxels(cage_arr, facecolors=(0.5, 0.5, 0.5, 0.2), edgecolor=(0.3, 0.3, 0.3, 0.4))
 
         for i, off in enumerate(state):
+            if i in hidden:
+                continue
             arr = np.zeros(shape, dtype=bool)
             for (x, y, z) in world.voxels_at(i, off):
                 arr[x - x0, y - y0, z - z0] = True

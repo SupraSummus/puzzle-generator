@@ -29,3 +29,7 @@ The user's feedback will be about *what they saw*, not *what's wrong in the code
 ## Branching
 
 Feature work goes on the branch named in the session instructions. Don't push to other branches without explicit permission.
+
+## Committing generated artifacts
+
+Rule of thumb: **committing effects to the repo makes them easy to demonstrate and inspect, but must be guarded by a reproducibility check.** If you commit rendered output (PNGs, dumps, fixtures), wire the producing script into `.github/workflows/reproducibility.yml` so CI regenerates the artifact and fails on drift. No committed artifact without a guard.
