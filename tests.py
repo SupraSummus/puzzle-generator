@@ -355,6 +355,53 @@ def test_pieces_out_along_path_is_sticky_and_lagged() -> None:
         assert a <= b, (a, b)
 
 
+def test_sat_solver_matches_bfs_on_small_partitions() -> None:
+    """On 3x3x3 / 2-piece partitions, the SAT solver returns a shortest path
+    of the same length as BFS, starting at solved, ending bbox-disjoint, and
+    every step a single-piece unit slide."""
+    from sat_solve import shortest_disassembly_path_sat
+
+    target = cube(3)
+    for seed in range(5):
+        rng = random.Random(seed)
+        pieces = random_partition(target, 2, rng)
+        world = world_from_partition(pieces, max_displacement=3)
+        bfs = shortest_disassembly_path(world)
+        sat = shortest_disassembly_path_sat(world, max_horizon=20)
+        if bfs is None:
+            assert sat is None, (seed, sat)
+            continue
+        assert sat is not None, seed
+        assert len(sat) == len(bfs), (seed, len(sat), len(bfs))
+        assert sat[0] == world.solved, seed
+        assert bboxes_disjoint(world, sat[-1]), seed
+        for a, b in zip(sat, sat[1:]):
+            diffs = [tuple(bi - ai for ai, bi in zip(ao, bo)) for ao, bo in zip(a, b)]
+            nonzero = [d for d in diffs if d != (0, 0, 0)]
+            assert len(nonzero) == 1, (seed, a, b)
+            assert nonzero[0] in DIRECTIONS, (seed, a, b, nonzero[0])
+
+
+def test_sat_solver_returns_none_when_no_disassembly() -> None:
+    """A trivially-caged single piece has no path to bbox-disjoint (only one piece)."""
+    from sat_solve import shortest_disassembly_path_sat
+
+    # Single piece: no pair, so bbox-disjoint goal is vacuously true at t=0.
+    # We require T >= 1, so there must be some move. Here a caged unit cube that
+    # cannot move returns None within the horizon.
+    piece = frozenset({(0, 0, 0)})
+    cage = frozenset({(1, 0, 0), (-1, 0, 0), (0, 1, 0), (0, -1, 0), (0, 0, 1), (0, 0, -1)})
+    world = World(
+        pieces=(piece,),
+        cage=cage,
+        solved=((0, 0, 0),),
+        max_displacement=1,
+    )
+    # One piece => only the T=0 state is bbox-disjoint (vacuously). No move
+    # possible at all. SAT with horizon >= 1 returns None.
+    assert shortest_disassembly_path_sat(world, max_horizon=3) is None
+
+
 def _run() -> int:
     tests = [(n, f) for n, f in sorted(globals().items())
              if n.startswith("test_") and callable(f)]
